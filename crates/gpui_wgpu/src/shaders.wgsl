@@ -1379,7 +1379,9 @@ struct BlurParams {
     // 1.0 = clip the composite to the rounded rect (backdrop); 0.0 = let the blurred result fade
     // out on its own (content `filter` bleeds past the element box like CSS).
     clip_rounded: f32,
-    pad1: f32,
+    // 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the origin
+    // so a stationary element blurs identically at every window size); 0.0 = 1:1 copy (scene blit).
+    downsample: f32,
 }
 
 @group(1) @binding(0) var<uniform> blur_locals: BlurParams;
@@ -1405,8 +1407,17 @@ fn vs_blur_fullscreen(@builtin(vertex_index) vertex_id: u32) -> BlurVarying {
 
 @fragment
 fn fs_blur_downsample(input: BlurVarying) -> @location(0) vec4<f32> {
-    // A single bilinear tap at a half-resolution texel center averages the 4 covered source
-    // texels, giving a cheap 2x2 box downsample (and an exact copy at matching resolution).
+    if (blur_locals.downsample > 0.5) {
+        // Snapped 2:1 box downsample. Half-res texel `px` samples source at full-res coordinate
+        // 2*px + 1 (the boundary between source texels 2*px and 2*px+1), so one bilinear tap
+        // averages exactly that pair. The grid is anchored to the origin and independent of the
+        // viewport size, so an element at fixed pixels blurs identically at every window size —
+        // otherwise the implicit `floor(W/2)` grid stretches and the halo wobbles by ~1px on resize.
+        let dst = floor(input.position.xy);
+        let src_uv = (dst * 2.0 + 1.0) / globals.viewport_size;
+        return textureSampleLevel(t_blur, s_blur, src_uv, 0.0);
+    }
+    // 1:1 copy at matching resolution (used to blit the offscreen scene into the swapchain).
     return textureSampleLevel(t_blur, s_blur, input.uv, 0.0);
 }
 
@@ -1443,8 +1454,12 @@ fn fs_blur_composite(input: BlurVarying) -> @location(0) vec4<f32> {
         return vec4<f32>(0.0);
     }
 
-    // The blurred texture spans the whole screen, so sample it by screen position.
-    let uv = input.position.xy / globals.viewport_size;
+    // Sample the half-res blur by screen position, using the SAME fixed 2:1 grid the snapped
+    // downsample wrote (anchored at the origin, independent of viewport parity). `2*floor(W/2)` is
+    // the source span the half-res texture covers; dividing by it maps screen pixel p to half-res
+    // texel p/2 at every window size, so the composite stays put rather than wobbling on resize.
+    let blur_span = 2.0 * floor(globals.viewport_size * 0.5);
+    let uv = input.position.xy / blur_span;
     let blurred = textureSampleLevel(t_blur, s_blur, uv, 0.0);
 
     let corner_radii = Corners(

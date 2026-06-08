@@ -1298,7 +1298,9 @@ struct BlurParams {
   float opacity;
   float tap_count;
   float clip_rounded;
-  float pad1;
+  // 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the origin
+  // so a stationary element blurs identically at every window size); 0.0 = 1:1 copy (scene blit).
+  float downsample;
   float pad2;
 };
 
@@ -1317,11 +1319,24 @@ vertex BlurVertexOutput blur_fullscreen_vertex(
   return out;
 }
 
-// Single bilinear tap; at half resolution this averages a 2x2 source block.
 fragment float4 blur_downsample_fragment(
     BlurVertexOutput input [[stage_in]],
-    texture2d<float> source [[texture(0)]]) {
+    texture2d<float> source [[texture(0)]],
+    constant BlurParams &params [[buffer(1)]]) {
   constexpr sampler s(mag_filter::linear, min_filter::linear);
+  if (params.downsample > 0.5) {
+    // Snapped 2:1 box downsample. Half-res texel `px` samples source at full-res coordinate
+    // 2*px + 1 (the boundary between source texels 2*px and 2*px+1), so one bilinear tap averages
+    // exactly that pair. Anchored to the origin and independent of the viewport size, so an element
+    // at fixed pixels blurs identically at every window size — otherwise the implicit floor(W/2)
+    // grid stretches and the halo wobbles by ~1px on resize. Uses the source's own dimensions
+    // because this pass binds the half-res target size as the viewport.
+    float2 dst = floor(input.position.xy);
+    float2 src_size = float2(float(source.get_width()), float(source.get_height()));
+    float2 src_uv = (dst * 2.0 + 1.0) / src_size;
+    return source.sample(s, src_uv);
+  }
+  // 1:1 copy at matching resolution (used to blit the offscreen scene into the drawable).
   return source.sample(s, input.uv);
 }
 
@@ -1368,10 +1383,11 @@ fragment float4 blur_composite_fragment(
     constant BlurParams &params [[buffer(1)]],
     constant Size_DevicePixels *viewport_size [[buffer(2)]]) {
   constexpr sampler s(mag_filter::linear, min_filter::linear);
-  float2 viewport =
-      float2((float)viewport_size->width, (float)viewport_size->height);
-  // The blurred texture spans the whole screen; sample it by screen position.
-  float2 uv = input.position.xy / viewport;
+  // Sample the half-res blur by screen position, on the SAME fixed 2:1 grid the snapped downsample
+  // wrote (anchored at the origin, independent of viewport parity): 2 * the half-res texture size
+  // maps screen pixel p to half-res texel p/2 at every window size, so it doesn't wobble on resize.
+  float2 half_size = float2(float(source.get_width()), float(source.get_height()));
+  float2 uv = input.position.xy / (2.0 * half_size);
   float4 blurred = source.sample(s, uv);
   // Backdrop clips to the rounded rect (the panel has a defined shape); content blur bleeds past
   // its bounds like CSS `filter: blur`, so its shape comes from the blurred group's own alpha.

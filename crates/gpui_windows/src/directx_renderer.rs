@@ -1005,7 +1005,10 @@ impl DirectXRenderer {
             &self.pipelines.blur_blend_replace,
             &ping_rtv,
             source_srv,
-            BlurParams::default(),
+            BlurParams {
+                downsample: 1.0,
+                ..Default::default()
+            },
             &half_vp,
             D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
             3,
@@ -1415,7 +1418,11 @@ struct BlurParams {
     /// 1.0 clips the composite to the rounded rect (backdrop); 0.0 lets content blur bleed past
     /// its bounds like CSS `filter: blur`.
     clip_rounded: f32,
-    _pad: [f32; 2],
+    /// 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the
+    /// origin, so a stationary element blurs identically at every window size); 0.0 = 1:1 copy
+    /// (the scene blit, which must not downsample). Downsample pass only.
+    downsample: f32,
+    _pad: f32,
 }
 
 impl Default for BlurParams {
@@ -1428,7 +1435,9 @@ impl Default for BlurParams {
             sigma: 0.0,
             opacity: 1.0,
             tap_count: 0.0,
-            _pad: [0.0; 3],
+            clip_rounded: 0.0,
+            downsample: 0.0,
+            _pad: 0.0,
         }
     }
 }
