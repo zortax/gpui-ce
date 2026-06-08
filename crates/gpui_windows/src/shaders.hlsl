@@ -1275,7 +1275,10 @@ cbuffer BlurParams: register(b1) {
     float blur_opacity;
     float blur_tap_count;
     float blur_clip_rounded;
-    float2 blur_pad;
+    // 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the origin
+    // so a stationary element blurs identically at every window size); 0.0 = 1:1 copy (scene blit).
+    float blur_downsample;
+    float blur_pad;
 };
 
 struct BlurVertexOutput {
@@ -1296,6 +1299,18 @@ BlurVertexOutput blur_downsample_vertex(uint vertex_id: SV_VertexID) {
 }
 
 float4 blur_downsample_fragment(BlurVertexOutput input): SV_Target {
+    if (blur_downsample > 0.5) {
+        // Snapped 2:1 box downsample. Half-res texel `px` samples source at full-res coordinate
+        // 2*px + 1 (the boundary between source texels 2*px and 2*px+1), so one bilinear tap
+        // averages exactly that pair. Anchored to the origin and independent of the viewport size,
+        // so an element at fixed pixels blurs identically at every window size — otherwise the
+        // implicit floor(W/2) grid stretches and the halo wobbles by ~1px on resize.
+        uint sw, sh;
+        t_sprite.GetDimensions(sw, sh);
+        float2 src_uv = (floor(input.position.xy) * 2.0 + 1.0) / float2(sw, sh);
+        return t_sprite.SampleLevel(s_sprite, src_uv, 0.0);
+    }
+    // 1:1 copy at matching resolution (used to blit the offscreen scene into the swapchain).
     return t_sprite.SampleLevel(s_sprite, input.uv, 0.0);
 }
 
@@ -1334,8 +1349,12 @@ BlurCompositeVertexOutput blur_composite_vertex(uint vertex_id: SV_VertexID) {
 }
 
 float4 blur_composite_fragment(BlurCompositeFragmentInput input): SV_Target {
-    // The blurred texture spans the whole screen; sample it by screen position.
-    float2 uv = input.position.xy / global_viewport_size;
+    // Sample the half-res blur by screen position, on the SAME fixed 2:1 grid the snapped downsample
+    // wrote (anchored at the origin, independent of viewport parity): 2 * the half-res texture size
+    // maps screen pixel p to half-res texel p/2 at every window size, so it doesn't wobble on resize.
+    uint hw, hh;
+    t_sprite.GetDimensions(hw, hh);
+    float2 uv = input.position.xy / (2.0 * float2(hw, hh));
     float4 blurred = t_sprite.SampleLevel(s_sprite, uv, 0.0);
     Corners radii;
     radii.top_left = blur_corner_radii.x;

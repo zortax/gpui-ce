@@ -162,7 +162,10 @@ struct BlurUniform {
     /// 1.0 clips the composite to the rounded rect (backdrop); 0.0 lets content blur bleed past
     /// its bounds like CSS `filter: blur`.
     clip_rounded: f32,
-    pad1: f32,
+    /// 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the
+    /// origin, so a stationary element blurs identically at every window size); 0.0 = 1:1 copy
+    /// (the scene blit, which must not downsample). Downsample pass only.
+    downsample: f32,
     pad2: f32,
 }
 
@@ -177,7 +180,7 @@ impl Default for BlurUniform {
             opacity: 1.0,
             tap_count: 0.0,
             clip_rounded: 0.0,
-            pad1: 0.0,
+            downsample: 0.0,
             pad2: 0.0,
         }
     }
@@ -1212,7 +1215,10 @@ impl MetalRenderer {
             ping,
             source,
             half,
-            BlurUniform::default(),
+            BlurUniform {
+                downsample: 1.0,
+                ..Default::default()
+            },
             false,
         );
         self.run_metal_blur_pass(

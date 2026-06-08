@@ -7,6 +7,16 @@
 //!    backdrop snapshot includes everything beneath an overlay, and that the overlay sorts on top).
 //! 2. `blur` — content blur: blurs the element and its own children as a group.
 //!    Shown with text and again with a row of colored chips.
+//!
+//! It also stresses two content-blur edge cases:
+//!
+//! 3. Nested content blur — a `blur()` element inside another `blur()` element, so the inner
+//!    subtree is blurred twice (its own filter, then again as part of the outer group). This
+//!    exercises the renderer's per-nesting-level group textures.
+//! 4. Adjacent blocks with no gap on a dark parent, shown two ways: `blur` on each block (every
+//!    block is its own group, so the parent shows through each seam — exactly like CSS `filter`
+//!    on each sibling) versus `blur` on the parent (one group covering all blocks, so the blur is
+//!    continuous and the seams are clean — the CSS "blur the wrapper" idiom).
 
 use gpui::{
     App, Bounds, Context, Render, Window, WindowBounds, WindowOptions, deferred, div, point,
@@ -133,6 +143,122 @@ fn content_blurred_rich() -> impl IntoElement {
         }))
 }
 
+/// Nested content blur: a `blur()` element inside another `blur()` element. The inner block is
+/// blurred by its own filter and then again as part of the outer group, exercising the renderer's
+/// per-nesting-level isolated group textures (up to `MAX_FILTER_DEPTH`). The inner content should
+/// read as markedly softer than the outer block's own text.
+fn nested_content_blurred() -> impl IntoElement {
+    div()
+        .absolute()
+        .left(px(740.))
+        .top(px(80.))
+        .w(px(290.))
+        .h(px(220.))
+        .blur(px(3.))
+        .bg(rgb(0x1e293b))
+        .rounded_xl()
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap_4()
+        .text_color(rgb(0xe2e8f0))
+        .text_xl()
+        .child("outer blur(3px)")
+        .child(
+            div()
+                .w(px(190.))
+                .h(px(100.))
+                .blur(px(8.))
+                .bg(rgb(0xf59e0b))
+                .rounded_lg()
+                .flex()
+                .items_center()
+                .justify_center()
+                .text_color(rgb(0x111111))
+                .text_2xl()
+                .child("inner blur(8px)"),
+        )
+}
+
+const SEAM_COLORS: [u32; 4] = [0xef4444, 0x22c55e, 0x3b82f6, 0xeab308];
+
+/// One numbered, brightly-coloured block of the seam row. With `blur_each` it becomes its own
+/// content-filter group; otherwise it is a plain block (relying on a blurred parent, if any).
+/// Square corners on purpose: gpui content masks are axis-aligned rectangles, so a *rounded*
+/// parent would not clip the blurred children to its radius and the busy background would leak
+/// through the corner triangles — a separate concern from the seam blending under test here.
+fn seam_block(i: usize, hex: u32, blur_each: bool) -> impl IntoElement {
+    let block = div().flex_1().h_full();
+    let block = if blur_each { block.blur(px(5.)) } else { block };
+    block
+        .bg(rgb(hex))
+        .flex()
+        .items_center()
+        .justify_center()
+        .text_color(rgb(0xffffff))
+        .text_2xl()
+        .child(format!("{}", i + 1))
+}
+
+/// Adjacent blocks, each its OWN content-filter group (`blur` on every block), no gap, dark parent.
+/// This is CSS `filter: blur()` on each sibling: every block fades to transparent at its edges and
+/// composites independently, so the dark parent shows through each seam by roughly `α_left · α_right`
+/// (peaking at ~25% right on the seam). This matches the web — the clean alternative is the next panel.
+fn adjacent_per_block_blur() -> impl IntoElement {
+    div()
+        .absolute()
+        .left(px(740.))
+        .top(px(350.))
+        .w(px(290.))
+        .h(px(110.))
+        .bg(rgb(0x050505))
+        .flex()
+        .children(
+            SEAM_COLORS
+                .into_iter()
+                .enumerate()
+                .map(|(i, hex)| seam_block(i, hex, true)),
+        )
+}
+
+/// The same adjacent blocks, but `blur` is on the PARENT — one content-filter group covering all
+/// four. The blocks are opaque and touching, so the group's interior has no transparency: the blur
+/// is continuous across the seams and only the group's outer edge fades. This is the CSS "blur the
+/// wrapper, not each child" idiom, and the seams come out clean.
+fn adjacent_group_blur() -> impl IntoElement {
+    div()
+        .absolute()
+        .left(px(740.))
+        .top(px(510.))
+        .w(px(290.))
+        .h(px(110.))
+        .bg(rgb(0x050505))
+        .blur(px(5.))
+        .flex()
+        .children(
+            SEAM_COLORS
+                .into_iter()
+                .enumerate()
+                .map(|(i, hex)| seam_block(i, hex, false)),
+        )
+}
+
+/// A small dark pill label so the two new test sections are identifiable over the busy background.
+fn caption(text: &'static str, left: f32, top: f32) -> impl IntoElement {
+    div()
+        .absolute()
+        .left(px(left))
+        .top(px(top))
+        .px_2()
+        .py_1()
+        .rounded_md()
+        .bg(rgba(0x000000cc))
+        .text_color(rgb(0xffffff))
+        .text_sm()
+        .child(text)
+}
+
 impl Render for BlurExample {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div()
@@ -143,6 +269,20 @@ impl Render for BlurExample {
             .child(frosted_panel())
             .child(content_blurred())
             .child(content_blurred_rich())
+            .child(nested_content_blurred())
+            .child(adjacent_per_block_blur())
+            .child(adjacent_group_blur())
+            .child(caption("nested content blur", 740., 50.))
+            .child(caption(
+                "adjacent — blur each block (seams, = CSS)",
+                740.,
+                322.,
+            ))
+            .child(caption(
+                "adjacent — blur the parent (one group, clean)",
+                740.,
+                482.,
+            ))
             .child(deferred_popover())
     }
 }
@@ -159,7 +299,7 @@ fn main() {
 
         let bounds = Bounds {
             origin: point(px(100.), px(100.)),
-            size: size(px(720.), px(760.)),
+            size: size(px(1060.), px(760.)),
         };
         cx.open_window(
             WindowOptions {
