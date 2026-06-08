@@ -70,7 +70,10 @@ struct BlurParams {
     /// 0.0 to let the blurred result fade out on its own (content `filter` — it bleeds past the
     /// element bounds like CSS, so the fade isn't sharply truncated at the box edge).
     clip_rounded: f32,
-    pad: f32,
+    /// 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the
+    /// origin, so a stationary element blurs identically at every window size); 0.0 = 1:1 copy
+    /// (the scene blit, which must not downsample). Downsample pass only.
+    downsample: f32,
 }
 
 #[repr(C)]
@@ -2031,7 +2034,10 @@ impl WgpuRenderer {
             &self.resources().pipelines.blur_downsample,
             &ping,
             source,
-            BlurParams::default(),
+            BlurParams {
+                downsample: 1.0,
+                ..Default::default()
+            },
             scissor,
         );
         self.run_blur_pass(
