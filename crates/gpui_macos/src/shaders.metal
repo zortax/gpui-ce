@@ -1361,6 +1361,10 @@ struct BlurCompositeVertexOutput {
   float clip_distance [[clip_distance]][4];
 };
 
+struct BlurCompositeFragmentInput {
+  float4 position [[position]];
+};
+
 vertex BlurCompositeVertexOutput blur_composite_vertex(
     uint unit_vertex_id [[vertex_id]],
     constant float2 *unit_vertices [[buffer(0)]],
@@ -1378,7 +1382,7 @@ vertex BlurCompositeVertexOutput blur_composite_vertex(
 }
 
 fragment float4 blur_composite_fragment(
-    BlurCompositeVertexOutput input [[stage_in]],
+    BlurCompositeFragmentInput input [[stage_in]],
     texture2d<float> source [[texture(0)]],
     constant BlurParams &params [[buffer(1)]],
     constant Size_DevicePixels *viewport_size [[buffer(2)]]) {
