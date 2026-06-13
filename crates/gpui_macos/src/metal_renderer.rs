@@ -40,6 +40,12 @@ const SHADERS_SOURCE_FILE: &str = include_str!(concat!(env!("OUT_DIR"), "/stitch
 // https://developer.apple.com/documentation/metal/mtldevice/1433355-supportstexturesamplecount
 const PATH_SAMPLE_COUNT: u32 = 4;
 
+/// Number of content-filter (`filter`) nesting levels that get their own isolated group texture.
+/// Two covers the realistic "a blurred element inside another blurred element" case; deeper nests
+/// render inline (unblurred at the inner level) rather than allocating unbounded VRAM. Must match
+/// the wgpu backend's `MAX_FILTER_DEPTH` so nested blur renders consistently across platforms.
+const MAX_FILTER_DEPTH: usize = 2;
+
 pub(crate) type Context = Arc<Mutex<InstanceBufferPool>>;
 pub(crate) type Renderer = MetalRenderer;
 
@@ -143,7 +149,11 @@ pub(crate) struct MetalRenderer {
     scene_color_texture: Option<metal::Texture>,
     blur_ping_texture: Option<metal::Texture>,
     blur_pong_texture: Option<metal::Texture>,
-    group_texture: Option<metal::Texture>,
+    /// Full-resolution offscreen targets a content-filter (`filter`) group renders into before
+    /// being blurred and composited back. One per nesting level (indexed by isolation depth) so
+    /// nested content blurs isolate correctly, up to [`MAX_FILTER_DEPTH`]; deeper nests render
+    /// inline.
+    group_textures: Vec<metal::Texture>,
     path_sample_count: u32,
 }
 
@@ -166,7 +176,9 @@ struct BlurUniform {
     /// origin, so a stationary element blurs identically at every window size); 0.0 = 1:1 copy
     /// (the scene blit, which must not downsample). Downsample pass only.
     downsample: f32,
-    pad2: f32,
+    /// Spacing between taps in pixels (gaussian passes only); >1 lets `tap_count` taps span very
+    /// large radii without truncating the gaussian, matching the wgpu backend.
+    tap_step: f32,
 }
 
 impl Default for BlurUniform {
@@ -181,7 +193,7 @@ impl Default for BlurUniform {
             tap_count: 0.0,
             clip_rounded: 0.0,
             downsample: 0.0,
-            pad2: 0.0,
+            tap_step: 0.0,
         }
     }
 }
@@ -436,7 +448,7 @@ impl MetalRenderer {
             scene_color_texture: None,
             blur_ping_texture: None,
             blur_pong_texture: None,
-            group_texture: None,
+            group_textures: Vec::new(),
             path_sample_count: PATH_SAMPLE_COUNT,
         }
     }
@@ -489,7 +501,7 @@ impl MetalRenderer {
             self.scene_color_texture = None;
             self.blur_ping_texture = None;
             self.blur_pong_texture = None;
-            self.group_texture = None;
+            self.group_textures.clear();
             return;
         }
 
@@ -517,7 +529,9 @@ impl MetalRenderer {
         let full_w = size.width.0 as u64;
         let full_h = size.height.0 as u64;
         self.scene_color_texture = Some(make_color_texture(full_w, full_h));
-        self.group_texture = Some(make_color_texture(full_w, full_h));
+        self.group_textures = (0..MAX_FILTER_DEPTH)
+            .map(|_| make_color_texture(full_w, full_h))
+            .collect();
         self.blur_ping_texture = Some(make_color_texture(full_w / 2, full_h / 2));
         self.blur_pong_texture = Some(make_color_texture(full_w / 2, full_h / 2));
 
@@ -876,7 +890,7 @@ impl MetalRenderer {
         let scene_color_owned = self.scene_color_texture.clone();
         let blur_ping_owned = self.blur_ping_texture.clone();
         let blur_pong_owned = self.blur_pong_texture.clone();
-        let group_owned = self.group_texture.clone();
+        let group_owned = self.group_textures.clone();
         let scene_color: &metal::TextureRef = if use_offscreen {
             scene_color_owned.as_deref().unwrap_or(texture)
         } else {
@@ -1013,13 +1027,15 @@ impl MetalRenderer {
                 PrimitiveBatch::FilterBoundary(ix) => {
                     let boundary = scene.filter_boundaries[ix];
                     if boundary.is_start {
-                        // Only one nesting level can be isolated at a time (single group texture).
-                        let can_isolate =
-                            group_owned.is_some() && !filter_stack.iter().any(|entry| entry.2);
-                        if can_isolate {
+                        // Each isolated nesting level uses its own group texture from the pool
+                        // (indexed by current isolation depth). Beyond the pool size
+                        // (MAX_FILTER_DEPTH) deeper filters render inline without isolation rather
+                        // than corrupting an outer group.
+                        let depth = filter_stack.iter().filter(|entry| entry.2).count();
+                        if depth < group_owned.len() {
                             command_encoder.end_encoding();
                             let parent = current_target;
-                            current_target = group_owned.as_deref().unwrap();
+                            current_target = group_owned[depth].as_ref();
                             filter_stack.push((boundary, parent, true));
                             command_encoder = new_command_encoder_for_texture(
                                 command_buffer,
@@ -1194,7 +1210,11 @@ impl MetalRenderer {
         if sigma <= 0.0 {
             return;
         }
-        let tap_count = (3.0 * sigma).ceil().clamp(1.0, 32.0);
+        // Span ±3σ. If that needs more than 32 taps, spread the taps apart (tap_step > 1) rather
+        // than truncating the kernel — keeps very large radii from clipping. Matches wgpu.
+        let ideal_taps = (3.0 * sigma).ceil();
+        let tap_count = ideal_taps.clamp(1.0, 32.0);
+        let tap_step = (ideal_taps / tap_count).max(1.0);
         // Content blur bleeds ~3·radius past the box, so its composite quad covers a dilated rect.
         let composite_bounds = if clip_rounded {
             bounds
@@ -1231,6 +1251,7 @@ impl MetalRenderer {
                 direction: [1.0 / half_w, 0.0],
                 sigma,
                 tap_count,
+                tap_step,
                 ..Default::default()
             },
             false,
@@ -1245,6 +1266,7 @@ impl MetalRenderer {
                 direction: [0.0, 1.0 / half_h],
                 sigma,
                 tap_count,
+                tap_step,
                 ..Default::default()
             },
             false,

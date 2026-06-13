@@ -95,7 +95,10 @@ impl Scene {
         // sorts after everything painted before it and the element's own children (which overlap
         // the marker bounds) sort strictly above the start. This keeps a marker's order range from
         // colliding with unrelated non-overlapping content that reuses low orderings (e.g. a
-        // background grid), which would otherwise sweep that content into the group.
+        // background grid), which would otherwise sweep that content into the group. Content
+        // painted *after* the group is held above it by raising the order floor when the end
+        // marker is inserted (see below) — otherwise a later non-overlapping sibling could reuse a
+        // low order that lands inside the start..end range and be swept into the group.
         let is_filter_boundary = matches!(primitive, Primitive::FilterBoundary(_));
 
         if clipped_bounds.is_empty() && !is_filter_boundary {
@@ -155,6 +158,14 @@ impl Scene {
             }
             Primitive::FilterBoundary(boundary) => {
                 boundary.order = order;
+                if !boundary.is_start {
+                    // A closed content-filter group is a draw-order barrier: everything painted
+                    // afterwards must sort above the group's end marker so it can't fall back
+                    // inside the group's order range (subsequent non-overlapping content otherwise
+                    // reuses a low order). Mirrors the floor raised before deferred draws in
+                    // `raise_order_floor`.
+                    self.primitive_bounds.set_order_floor(order + 1);
+                }
                 self.filter_boundaries.push(*boundary);
             }
         }
@@ -1096,6 +1107,26 @@ mod tests {
         }
     }
 
+    /// A 100x100 quad whose bounds don't overlap `full_bounds()` (used to exercise the
+    /// order-reuse path: non-overlapping content reuses low draw-orders).
+    fn detached_quad() -> Quad {
+        let bounds = Bounds {
+            origin: Point {
+                x: sp(200.0),
+                y: sp(200.0),
+            },
+            size: Size {
+                width: sp(100.0),
+                height: sp(100.0),
+            },
+        };
+        Quad {
+            bounds,
+            content_mask: ContentMask { bounds },
+            ..Default::default()
+        }
+    }
+
     fn boundary(is_start: bool) -> FilterBoundary {
         FilterBoundary {
             order: 0,
@@ -1172,6 +1203,24 @@ mod tests {
         assert_eq!(
             batch_kinds(&mut scene),
             vec!["start", "quad", "start", "quad", "end", "end"]
+        );
+    }
+
+    #[test]
+    fn content_after_a_filter_group_sorts_above_it() {
+        let mut scene = Scene::default();
+        // A content-filtered element: start marker, its child, end marker.
+        scene.insert_primitive(boundary(true));
+        scene.insert_primitive(quad());
+        scene.insert_primitive(boundary(false));
+        // A sibling painted after the group that does NOT overlap it. Without the close-time
+        // order-floor it would reuse the lowest order, tie with the start marker, and be swept
+        // into the group (start, quad, quad, end); it must instead sort after the end marker.
+        scene.insert_primitive(detached_quad());
+
+        assert_eq!(
+            batch_kinds(&mut scene),
+            vec!["start", "quad", "end", "quad"]
         );
     }
 

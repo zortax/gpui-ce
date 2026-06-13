@@ -1301,7 +1301,9 @@ struct BlurParams {
   // 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the origin
   // so a stationary element blurs identically at every window size); 0.0 = 1:1 copy (scene blit).
   float downsample;
-  float pad2;
+  // Spacing between taps in pixels (gaussian passes only); >1 lets `tap_count` taps span very
+  // large radii without truncating the gaussian.
+  float tap_step;
 };
 
 struct BlurVertexOutput {
@@ -1349,8 +1351,9 @@ fragment float4 blur_fragment(
   float4 color = float4(0.0);
   float weight_sum = 0.0;
   for (int i = -taps; i <= taps; i++) {
-    float w = gaussian(float(i), params.sigma);
-    color += source.sample(s, input.uv + params.direction * float(i)) * w;
+    float offset = float(i) * params.tap_step;
+    float w = gaussian(offset, params.sigma);
+    color += source.sample(s, input.uv + params.direction * offset) * w;
     weight_sum += w;
   }
   return color / max(weight_sum, 1e-5);

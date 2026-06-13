@@ -28,6 +28,12 @@ const RENDER_TARGET_FORMAT: DXGI_FORMAT = DXGI_FORMAT_B8G8R8A8_UNORM;
 // This configuration is used for MSAA rendering on paths only, and it's guaranteed to be supported by DirectX 11.
 const PATH_MULTISAMPLE_COUNT: u32 = 4;
 
+/// Number of content-filter (`filter`) nesting levels that get their own isolated group target.
+/// Two covers the realistic "a blurred element inside another blurred element" case; deeper nests
+/// render inline (unblurred at the inner level) rather than allocating unbounded VRAM. Must match
+/// the wgpu backend's `MAX_FILTER_DEPTH` so nested blur renders consistently across platforms.
+const MAX_FILTER_DEPTH: usize = 2;
+
 pub(crate) struct FontInfo {
     pub gamma_ratios: [f32; 4],
     pub grayscale_enhanced_contrast: f32,
@@ -92,7 +98,9 @@ struct DirectXResources {
 
 /// Offscreen render targets used by the blur filters. The scene is rendered into `scene_color`
 /// (so filters can sample it), `ping`/`pong` are half-resolution scratch for the separable
-/// gaussian, and `group` isolates a content-filter (`filter`) subtree.
+/// gaussian, and `groups` isolate content-filter (`filter`) subtrees — one per nesting level
+/// (indexed by isolation depth), up to [`MAX_FILTER_DEPTH`], so nested content blurs isolate
+/// correctly; deeper nests render inline.
 struct BlurResources {
     scene_color: ID3D11Texture2D,
     scene_color_rtv: Option<ID3D11RenderTargetView>,
@@ -103,9 +111,10 @@ struct BlurResources {
     pong: ID3D11Texture2D,
     pong_rtv: Option<ID3D11RenderTargetView>,
     pong_srv: Option<ID3D11ShaderResourceView>,
-    group: ID3D11Texture2D,
-    group_rtv: Option<ID3D11RenderTargetView>,
-    group_srv: Option<ID3D11ShaderResourceView>,
+    // Kept alive for the lifetime of their views; indexed by isolation depth.
+    groups: Vec<ID3D11Texture2D>,
+    group_rtvs: Vec<Option<ID3D11RenderTargetView>>,
+    group_srvs: Vec<Option<ID3D11ShaderResourceView>>,
 }
 
 impl BlurResources {
@@ -116,7 +125,15 @@ impl BlurResources {
             create_color_target(device, width, height)?;
         let (ping, ping_rtv, ping_srv) = create_color_target(device, half_w, half_h)?;
         let (pong, pong_rtv, pong_srv) = create_color_target(device, half_w, half_h)?;
-        let (group, group_rtv, group_srv) = create_color_target(device, width, height)?;
+        let mut groups = Vec::with_capacity(MAX_FILTER_DEPTH);
+        let mut group_rtvs = Vec::with_capacity(MAX_FILTER_DEPTH);
+        let mut group_srvs = Vec::with_capacity(MAX_FILTER_DEPTH);
+        for _ in 0..MAX_FILTER_DEPTH {
+            let (group, group_rtv, group_srv) = create_color_target(device, width, height)?;
+            groups.push(group);
+            group_rtvs.push(group_rtv);
+            group_srvs.push(group_srv);
+        }
         Ok(Self {
             scene_color,
             scene_color_rtv,
@@ -127,9 +144,9 @@ impl BlurResources {
             pong,
             pong_rtv,
             pong_srv,
-            group,
-            group_rtv,
-            group_srv,
+            groups,
+            group_rtvs,
+            group_srvs,
         })
     }
 }
@@ -391,13 +408,13 @@ impl DirectXRenderer {
 
         // Clone the views we need (AddRef) so the loop can rebind render targets without holding a
         // borrow of `self` across the `&mut self` draw_* calls.
-        let (scene_rtv, scene_srv, group_rtv, group_srv, swapchain_rtv) = {
+        let (scene_rtv, scene_srv, group_rtvs, group_srvs, swapchain_rtv) = {
             let r = self.resources.as_ref().context("resources missing")?;
             (
                 r.blur.scene_color_rtv.clone(),
                 r.blur.scene_color_srv.clone(),
-                r.blur.group_rtv.clone(),
-                r.blur.group_srv.clone(),
+                r.blur.group_rtvs.clone(),
+                r.blur.group_srvs.clone(),
                 r.render_target_view.clone(),
             )
         };
@@ -479,12 +496,15 @@ impl DirectXRenderer {
                 PrimitiveBatch::FilterBoundary(ix) => {
                     let boundary = scene.filter_boundaries[ix];
                     if boundary.is_start {
-                        let can_isolate =
-                            group_rtv.is_some() && !filter_stack.iter().any(|entry| entry.2);
-                        if can_isolate {
+                        // Each isolated nesting level uses its own group target from the pool
+                        // (indexed by current isolation depth). Beyond the pool size
+                        // (MAX_FILTER_DEPTH) deeper filters render inline without isolation rather
+                        // than corrupting an outer group.
+                        let depth = filter_stack.iter().filter(|entry| entry.2).count();
+                        if depth < group_rtvs.len() {
                             filter_stack.push((current_rtv.clone(), current_srv.clone(), true));
-                            current_rtv = group_rtv.clone();
-                            current_srv = group_srv.clone();
+                            current_rtv = group_rtvs[depth].clone();
+                            current_srv = group_srvs[depth].clone();
                             self.active_render_target = current_rtv.clone();
                             unsafe {
                                 if let Some(rtv) = current_rtv.as_ref() {
@@ -970,7 +990,11 @@ impl DirectXRenderer {
         if sigma <= 0.0 {
             return Ok(());
         }
-        let tap_count = (3.0 * sigma).ceil().clamp(1.0, 32.0);
+        // Span ±3σ. If that needs more than 32 taps, spread the taps apart (tap_step > 1) rather
+        // than truncating the kernel — keeps very large radii from clipping. Matches wgpu.
+        let ideal_taps = (3.0 * sigma).ceil();
+        let tap_count = ideal_taps.clamp(1.0, 32.0);
+        let tap_step = (ideal_taps / tap_count).max(1.0);
         // Content blur bleeds ~3·radius past the box, so its composite quad covers a dilated rect.
         let composite_bounds = if clip_rounded {
             bounds
@@ -1024,6 +1048,7 @@ impl DirectXRenderer {
                 direction: [1.0 / half_w as f32, 0.0],
                 sigma,
                 tap_count,
+                tap_step,
                 ..Default::default()
             },
             &half_vp,
@@ -1041,6 +1066,7 @@ impl DirectXRenderer {
                 direction: [0.0, 1.0 / half_h as f32],
                 sigma,
                 tap_count,
+                tap_step,
                 ..Default::default()
             },
             &half_vp,
@@ -1422,7 +1448,9 @@ struct BlurParams {
     /// origin, so a stationary element blurs identically at every window size); 0.0 = 1:1 copy
     /// (the scene blit, which must not downsample). Downsample pass only.
     downsample: f32,
-    _pad: f32,
+    /// Spacing between taps in pixels (gaussian passes only); >1 lets `tap_count` taps span very
+    /// large radii without truncating the gaussian, matching the wgpu backend.
+    tap_step: f32,
 }
 
 impl Default for BlurParams {
@@ -1437,7 +1465,7 @@ impl Default for BlurParams {
             tap_count: 0.0,
             clip_rounded: 0.0,
             downsample: 0.0,
-            _pad: 0.0,
+            tap_step: 0.0,
         }
     }
 }

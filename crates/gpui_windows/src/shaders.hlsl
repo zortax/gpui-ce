@@ -1278,7 +1278,9 @@ cbuffer BlurParams: register(b1) {
     // 1.0 = snapped 2:1 box downsample (anchor the half-res grid to a fixed 2px grid at the origin
     // so a stationary element blurs identically at every window size); 0.0 = 1:1 copy (scene blit).
     float blur_downsample;
-    float blur_pad;
+    // Spacing between taps in pixels (gaussian passes only); >1 lets `blur_tap_count` taps span
+    // very large radii without truncating the gaussian.
+    float blur_tap_step;
 };
 
 struct BlurVertexOutput {
@@ -1324,8 +1326,9 @@ float4 blur_fragment(BlurVertexOutput input): SV_Target {
     float weight_sum = 0.0;
     [loop]
     for (int i = -taps; i <= taps; i++) {
-        float weight = gaussian(float(i), blur_sigma);
-        color += t_sprite.SampleLevel(s_sprite, input.uv + blur_direction * float(i), 0.0) * weight;
+        float offset = float(i) * blur_tap_step;
+        float weight = gaussian(offset, blur_sigma);
+        color += t_sprite.SampleLevel(s_sprite, input.uv + blur_direction * offset, 0.0) * weight;
         weight_sum += weight;
     }
     return color / max(weight_sum, 1e-5);
