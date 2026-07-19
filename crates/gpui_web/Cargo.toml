@@ -31,9 +31,10 @@ wasm-bindgen-futures = "0.4"
 web-time.workspace = true
 console_error_panic_hook = "0.1.7"
 js-sys = "0.3"
-raw-window-handle = "0.6"
+raw-window-handle.workspace = true
 wasm_thread = { version = "0.3", features = ["es_modules"], optional = true }
 web-sys = { version = "0.3", features = [
+<<<<<<< HEAD
   "console",
   "CompositionEvent",
   "CssStyleDeclaration",
@@ -69,4 +70,43 @@ web-sys = { version = "0.3", features = [
   "Response",
   "WheelEvent",
   "Window",
+=======
+    "console",
+    "Clipboard",
+    "ClipboardEvent",
+    "CompositionEvent",
+    "CssStyleDeclaration",
+    "DataTransfer",
+    "Document",
+    "DomRect",
+    "DragEvent",
+    "Element",
+    "EventTarget",
+    "File",
+    "FileList",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "HtmlInputElement",
+    "KeyboardEvent",
+    "MediaQueryList",
+    "MediaQueryListEvent",
+    "MouseEvent",
+    "Navigator",
+    "PointerEvent",
+    "ResizeObserver",
+    "ResizeObserverBoxOptions",
+    "ResizeObserverEntry",
+    "ResizeObserverSize",
+    "ResizeObserverOptions",
+    "Screen",
+    "Storage",
+    "VisualViewport",
+    "Headers",
+    "Request",
+    "RequestInit",
+    "RequestRedirect",
+    "Response",
+    "WheelEvent",
+    "Window",
+>>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
 ] }

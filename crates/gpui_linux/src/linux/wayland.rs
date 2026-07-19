@@ -2,7 +2,11 @@ mod client;
 mod clipboard;
 mod cursor;
 mod display;
+<<<<<<< HEAD
 mod scroll;
+=======
+mod popup;
+>>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
 mod serial;
 mod window;
 
