@@ -104,6 +104,7 @@ impl Render for WindowShadow {
                             .when(!tiling.left, |div| div.border_l(border_size))
                             .when(!tiling.right, |div| div.border_r(border_size))
                             .when(!tiling.is_tiled(), |div| {
+<<<<<<< HEAD:crates/gpui/examples/legacy/window_shadow.rs
                                 div.shadow(vec![gpui::BoxShadow {
                                     color: Hsla {
                                         h: 0.,
@@ -116,6 +117,21 @@ impl Render for WindowShadow {
                                     offset: point(px(0.0), px(0.0)),
                                     inset: false,
                                 }])
+=======
+                                div.shadow(vec![
+                                    gpui::BoxShadow::new(
+                                        px(0.),
+                                        px(0.),
+                                        Hsla {
+                                            h: 0.,
+                                            s: 0.,
+                                            l: 0.,
+                                            a: 0.4,
+                                        },
+                                    )
+                                    .blur_radius(shadow_size / 2.),
+                                ])
+>>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418:crates/gpui/examples/window_shadow.rs
                             }),
                     })
                     .on_mouse_move(|_e, _, cx| {
@@ -145,6 +161,7 @@ impl Render for WindowShadow {
                                         .w(px(200.0))
                                         .h(px(100.0))
                                         .bg(green())
+<<<<<<< HEAD:crates/gpui/examples/legacy/window_shadow.rs
                                         .shadow(vec![gpui::BoxShadow {
                                             color: Hsla {
                                                 h: 0.,
@@ -157,6 +174,21 @@ impl Render for WindowShadow {
                                             offset: point(px(0.0), px(0.0)),
                                             inset: false,
                                         }])
+=======
+                                        .shadow(vec![
+                                            gpui::BoxShadow::new(
+                                                px(0.),
+                                                px(0.),
+                                                Hsla {
+                                                    h: 0.,
+                                                    s: 0.,
+                                                    l: 0.,
+                                                    a: 1.0,
+                                                },
+                                            )
+                                            .blur_radius(px(20.0)),
+                                        ])
+>>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418:crates/gpui/examples/window_shadow.rs
                                         .map(|div| match decorations {
                                             Decorations::Server => div,
                                             Decorations::Client { .. } => div
