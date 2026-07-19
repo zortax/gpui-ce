@@ -8,13 +8,8 @@ use crate::{
     AbsoluteLength, App, Background, BackgroundTag, BorderStyle, Bounds, ContentMask, Corners,
     CornersRefinement, CursorStyle, DefiniteLength, DevicePixels, Edges, EdgesRefinement, Font,
     FontFallbacks, FontFeatures, FontStyle, FontWeight, GridLocation, Hsla, Length, Pixels, Point,
-<<<<<<< HEAD
     PointRefinement, Rgba, ScaledPixels, SharedString, Size, SizeRefinement, Styled, TextRun,
-    Window, black, phi, point, quad, rems, size,
-=======
-    PointRefinement, Rgba, SharedString, Size, SizeRefinement, Styled, TextRun, Window, black, phi,
-    point, px, quad, rems, size,
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
+    Window, black, phi, point, px, quad, rems, size,
 };
 use collections::HashSet;
 use refineable::Refineable;
@@ -366,7 +361,6 @@ pub struct BoxShadow {
     pub inset: bool,
 }
 
-<<<<<<< HEAD
 /// A graphical filter that can be applied either to an element's own content
 /// (via [`Styled::filter`], like CSS `filter`) or to the content rendered behind
 /// it (via [`Styled::backdrop_filter`], like CSS `backdrop-filter`).
@@ -411,7 +405,6 @@ pub enum ScaledFilter {
     Blur(ScaledPixels),
 }
 
-=======
 impl BoxShadow {
     /// Creates a new [`BoxShadow`] with the given offset and color, matching the order
     /// of the CSS `box-shadow` property. Use the builder methods to set blur radius,
@@ -445,7 +438,6 @@ impl BoxShadow {
     }
 }
 
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 /// How to handle whitespace in text
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum WhiteSpace {

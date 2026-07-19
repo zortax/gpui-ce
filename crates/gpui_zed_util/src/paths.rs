@@ -3261,11 +3261,7 @@ mod tests {
         use super::UrlExt;
 
         let url = url::Url::parse("file://somehost/home/user/file.txt").unwrap();
-<<<<<<< HEAD
-        assert_eq!(url.to_file_path_ext(PathStyle::Posix), Err(ToFilePathError));
-=======
-        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(()));
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
+        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(ToFilePathError));
     }
 
     #[test]
@@ -3405,27 +3401,18 @@ mod tests {
         use super::UrlExt;
 
         let url = url::Url::parse("http://example.com/path").unwrap();
-<<<<<<< HEAD
-        assert_eq!(url.to_file_path_ext(PathStyle::Posix), Err(ToFilePathError));
+        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(ToFilePathError));
         assert_eq!(
             url.to_file_path_ext(PathStyle::Windows),
             Err(ToFilePathError)
         );
 
         let url = url::Url::parse("https://example.com/path").unwrap();
-        assert_eq!(url.to_file_path_ext(PathStyle::Posix), Err(ToFilePathError));
+        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(ToFilePathError));
         assert_eq!(
             url.to_file_path_ext(PathStyle::Windows),
             Err(ToFilePathError)
         );
-=======
-        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(()));
-        assert_eq!(url.to_file_path_ext(PathStyle::Windows), Err(()));
-
-        let url = url::Url::parse("https://example.com/path").unwrap();
-        assert_eq!(url.to_file_path_ext(PathStyle::Unix), Err(()));
-        assert_eq!(url.to_file_path_ext(PathStyle::Windows), Err(()));
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
     }
 
     #[test]

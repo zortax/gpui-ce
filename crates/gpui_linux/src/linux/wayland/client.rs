@@ -15,15 +15,9 @@ use calloop::{
 use calloop_wayland_source::WaylandSource;
 use collections::HashMap;
 use filedescriptor::Pipe;
-<<<<<<< HEAD
+use gpui_util::ResultExt as _;
 use smallvec::SmallVec;
 use url::Url;
-use util::ResultExt as _;
-=======
-use gpui_util::ResultExt as _;
-use http_client::Url;
-use smallvec::SmallVec;
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 use wayland_backend::client::ObjectId;
 use wayland_backend::protocol::WEnum;
 use wayland_client::event_created_child;
@@ -975,11 +969,7 @@ impl LinuxClient for WaylandClient {
 
         let appearance = state.common.appearance;
         let compositor_gpu = state.compositor_gpu.take();
-<<<<<<< HEAD
         let gpu_requirements = state.gpu_requirements.clone();
-=======
-
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
         let (window, surface_id) = WaylandWindow::new(
             handle,
             state.globals.clone(),

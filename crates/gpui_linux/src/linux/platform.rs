@@ -124,9 +124,7 @@ pub(crate) struct LinuxCommon {
     pub(crate) callbacks: PlatformHandlers,
     pub(crate) signal: LoopSignal,
     pub(crate) menus: Vec<OwnedMenu>,
-<<<<<<< HEAD
     pub(crate) keyring_label: SharedString,
-=======
     app_name: Option<String>,
     system_notifications: crate::linux::system_notifications::SystemNotificationState,
     #[cfg_attr(
@@ -135,7 +133,6 @@ pub(crate) struct LinuxCommon {
     )]
     wake_sender: Sender<()>,
     wake_listener_started: bool,
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 }
 
 impl LinuxCommon {
@@ -170,15 +167,12 @@ impl LinuxCommon {
             callbacks,
             signal,
             menus: Vec::new(),
-<<<<<<< HEAD
             keyring_label: KEYRING_LABEL.into(),
-=======
             app_name: None,
             system_notifications: crate::linux::system_notifications::SystemNotificationState::new(
             ),
             wake_sender,
             wake_listener_started: false,
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
         };
 
         (common, main_receiver, wake_receiver)

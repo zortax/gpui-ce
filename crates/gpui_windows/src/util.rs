@@ -1,10 +1,6 @@
 use std::sync::OnceLock;
 
-<<<<<<< HEAD
-use ::util::ResultExt;
 #[cfg(not(feature = "wgpu"))]
-=======
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 use anyhow::Context;
 use gpui_util::ResultExt;
 use windows::{

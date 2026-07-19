@@ -1189,10 +1189,7 @@ impl WgpuRenderer {
             self.surface_config.height = clamped_height.max(1);
             let surface_config = self.surface_config.clone();
 
-<<<<<<< HEAD
             // GPU resources may not exist yet, skip rather than panicking
-=======
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
             let Some(resources) = self.resources.as_mut() else {
                 return;
             };

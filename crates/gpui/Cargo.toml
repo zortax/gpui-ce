@@ -28,19 +28,9 @@ test-support = [
 bench = ["test-support", "dep:criterion", "dep:hdrhistogram"]
 inspector = ["gpui_macros/inspector"]
 leak-detection = ["backtrace"]
-<<<<<<< HEAD
-wayland = ["bitflags"]
+wayland = []
 x11 = ["scap?/x11"]
 screen-capture = ["scap"]
-=======
-wayland = []
-x11 = [
-    "scap?/x11",
-]
-screen-capture = [
-    "scap",
-]
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 windows-manifest = ["dep:embed-resource"]
 input-latency-histogram = ["dep:hdrhistogram"]
 profiler = []
@@ -82,18 +72,13 @@ raw-window-handle.workspace = true
 regex.workspace = true
 refineable.workspace = true
 scheduler.workspace = true
-<<<<<<< HEAD
-resvg = { version = "0.45.0", default-features = false, features = [
+resvg = { version = "0.46.0", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
   "raster-images",
 ] }
-usvg = { version = "0.45.0", default-features = false }
-=======
-resvg.workspace = true
-usvg.workspace = true
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
+usvg = { version = "0.46.0", default-features = false }
 ttf-parser = "0.25"
 schemars.workspace = true
 seahash = "4.1"
@@ -167,13 +152,8 @@ rand.workspace = true
 scheduler = { workspace = true, features = ["test-support"] }
 unicode-segmentation = { workspace = true }
 
-<<<<<<< HEAD
-=======
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-http_client = { workspace = true, features = ["test-support"] }
 proptest = { workspace = true }
-reqwest_client = { workspace = true, features = ["test-support"] }
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
@@ -212,46 +192,12 @@ name = "async_tasks"
 path = "examples/learn/async_tasks.rs"
 
 [[example]]
-<<<<<<< HEAD
 name = "custom_drawing"
 path = "examples/learn/custom_drawing.rs"
 
 [[example]]
 name = "animation"
 path = "examples/learn/animation.rs"
-=======
-name = "window_movable"
-path = "examples/window_movable.rs"
-
-[[example]]
-name = "opacity"
-path = "examples/opacity.rs"
-
-[[example]]
-name = "pattern"
-path = "examples/pattern.rs"
-
-[[example]]
-name = "set_menus"
-path = "examples/set_menus.rs"
-
-[[example]]
-name = "system_notifications"
-path = "examples/system_notifications.rs"
-
-
-[[example]]
-name = "shadow"
-path = "examples/shadow.rs"
-
-[[example]]
-name = "svg"
-path = "examples/svg/svg.rs"
-
-[[example]]
-name = "tab_stop"
-path = "examples/tab_stop.rs"
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
 
 [[example]]
 name = "text"
@@ -355,28 +301,4 @@ path = "examples/legacy/window_positioning.rs"
 
 [[example]]
 name = "window_shadow"
-<<<<<<< HEAD
 path = "examples/legacy/window_shadow.rs"
-=======
-path = "examples/window_shadow.rs"
-
-[[example]]
-name = "grid_layout"
-path = "examples/grid_layout.rs"
-
-[[example]]
-name = "list_example"
-path = "examples/list_example.rs"
-
-[[example]]
-name = "mouse_pressure"
-path = "examples/mouse_pressure.rs"
-
-[[example]]
-name = "a11y"
-path = "examples/a11y.rs"
-
-[[example]]
-name = "view_example"
-path = "examples/view_example/view_example_main.rs"
->>>>>>> 5c8cebf8235c30b73972a21395085f3aea937418
