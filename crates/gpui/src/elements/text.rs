@@ -647,6 +647,11 @@ impl TextLayoutTruncation {
                 affix: s,
                 source: TruncateFrom::Start,
             },
+            TextOverflow::TruncateMiddle(s) => TextLayoutTruncation {
+                width,
+                affix: s,
+                source: TruncateFrom::Middle,
+            },
         }
     }
 }
@@ -768,29 +773,9 @@ impl TextLayout {
                     available_space,
                 );
 
-<<<<<<< HEAD
                 let truncation =
                     Self::evaluate_overflow(&text_style, known_dimensions, available_space);
-=======
-                let (truncate_width, truncation_affix, truncate_from) =
-                    if let Some(text_overflow) = text_style.text_overflow.clone() {
-                        let width = known_dimensions.width.or(match available_space.width {
-                            crate::AvailableSpace::Definite(x) => match text_style.line_clamp {
-                                Some(max_lines) => Some(x * max_lines),
-                                None => Some(x),
-                            },
-                            _ => None,
-                        });
-
-                        match text_overflow {
-                            TextOverflow::Truncate(s) => (width, s, TruncateFrom::End),
-                            TextOverflow::TruncateStart(s) => (width, s, TruncateFrom::Start),
-                            TextOverflow::TruncateMiddle(s) => (width, s, TruncateFrom::Middle),
-                        }
-                    } else {
-                        (None, "".into(), TruncateFrom::End)
-                    };
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
+                let truncate_width = truncation.width;
 
                 // Only use cached layout if:
                 // 1. We have a cached size
@@ -803,17 +788,12 @@ impl TextLayout {
                 if let Some(text_layout) = element_state.0.borrow().as_ref()
                     && let Some(size) = text_layout.size
                     && (wrap_width.is_none() || wrap_width == text_layout.wrap_width)
-<<<<<<< HEAD
                     && truncation.width.is_none()
-=======
-                    && truncate_width.is_none()
                     && text_layout.truncate_width.is_none()
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
                 {
                     return size;
                 }
 
-<<<<<<< HEAD
                 let (text, runs) = Self::apply_truncation(
                     text.clone(),
                     &text_style,
@@ -823,48 +803,6 @@ impl TextLayout {
                     &runs,
                     cx,
                 );
-=======
-                let mut line_wrapper = cx.text_system().line_wrapper(text_style.font(), font_size);
-                let (text, runs) = if let Some(truncate_width) = truncate_width {
-                    if let Some(max_lines) = text_style.line_clamp
-                        && let Some(wrap_width) = wrap_width
-                    {
-                        line_wrapper.truncate_wrapped_line(
-                            text.clone(),
-                            wrap_width,
-                            max_lines,
-                            &truncation_affix,
-                            &runs,
-                            truncate_from,
-                        )
-                    } else if let Some(unclipped) = window
-                        .text_system()
-                        .shape_text(text.clone(), font_size, &runs, None, None)
-                        .log_err()
-                        && unclipped
-                            .iter()
-                            .all(|line| line.size(line_height).width <= truncate_width)
-                    {
-                        // The truncation decision below sums per-character advances,
-                        // which overestimates the shaped width (no kerning), truncating
-                        // text that fits exactly in its measured width. Skip truncation
-                        // whenever the honestly-shaped text fits; the shaping result
-                        // comes from the line layout cache when the same text was
-                        // already measured untruncated this frame.
-                        (text.clone(), Cow::Borrowed(&*runs))
-                    } else {
-                        line_wrapper.truncate_line(
-                            text.clone(),
-                            truncate_width,
-                            &truncation_affix,
-                            &runs,
-                            truncate_from,
-                        )
-                    }
-                } else {
-                    (text.clone(), Cow::Borrowed(&*runs))
-                };
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
                 let len = text.len();
 
                 let Some(lines) = window

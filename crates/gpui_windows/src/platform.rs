@@ -1119,9 +1119,6 @@ impl WindowsPlatformInner {
         Some(0)
     }
 
-<<<<<<< HEAD
-    #[cfg(not(feature = "wgpu"))]
-=======
     fn handle_power_broadcast(&self, wparam: WPARAM) -> Option<isize> {
         if wparam.0 as u32 == PBT_APMRESUMEAUTOMATIC {
             self.with_callback(|callbacks| &callbacks.system_wake, |callback| callback());
@@ -1129,7 +1126,7 @@ impl WindowsPlatformInner {
         Some(1)
     }
 
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
+    #[cfg(not(feature = "wgpu"))]
     fn handle_device_lost(&self, lparam: LPARAM) -> Option<isize> {
         let directx_devices = lparam.0 as *const DirectXDevices;
         let directx_devices = unsafe { &*directx_devices };

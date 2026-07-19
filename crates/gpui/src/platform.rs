@@ -887,15 +887,10 @@ pub trait PlatformWindow: HasWindowHandle + HasDisplayHandle {
     fn show_window_menu(&self, _position: Point<Pixels>) {}
     fn start_window_move(&self) {}
     fn start_window_resize(&self, _edge: ResizeEdge) {}
-<<<<<<< HEAD
-    fn set_input_region(&self, _rects: &[Bounds<Pixels>]) {}
-    fn set_exclusive_zone(&self, _zone: Pixels) {}
-=======
     fn set_exclusive_zone(&self, _zone: Pixels) {}
     #[cfg(all(target_os = "linux", feature = "wayland"))]
     fn set_exclusive_edge(&self, _edge: layer_shell::Anchor) {}
     fn set_input_region(&self, _region: Option<&[Bounds<Pixels>]>) {}
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
     fn window_decorations(&self) -> Decorations {
         Decorations::Server
     }

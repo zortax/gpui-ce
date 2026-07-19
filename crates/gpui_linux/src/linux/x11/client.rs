@@ -6,13 +6,8 @@ use calloop::{
 };
 use collections::HashMap;
 use core::str;
-<<<<<<< HEAD
 use gpui::{Capslock, TaskTiming, profiler};
-=======
-use gpui::{Capslock, profiler};
 use gpui_util::ResultExt as _;
-use http_client::Url;
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
 use log::Level;
 use smallvec::SmallVec;
 use std::{
@@ -23,11 +18,7 @@ use std::{
     rc::{Rc, Weak},
     time::{Duration, Instant},
 };
-<<<<<<< HEAD
 use url::Url;
-use util::ResultExt as _;
-=======
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
 
 use x11rb::{
     connection::{Connection, RequestConnection},

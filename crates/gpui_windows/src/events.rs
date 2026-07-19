@@ -1,15 +1,9 @@
-<<<<<<< HEAD
 #[cfg(feature = "wgpu")]
 use crate::window::RawWindow;
-use ::util::ResultExt;
-use anyhow::Context as _;
-use std::{rc::Rc, sync::atomic::Ordering};
-=======
 use std::{rc::Rc, sync::atomic::Ordering};
 
 use anyhow::Context as _;
 use gpui_util::ResultExt;
->>>>>>> 05b5c329ec56ce396c4cde1ec8780f0623314e25
 use windows::{
     Win32::{
         Foundation::*,
