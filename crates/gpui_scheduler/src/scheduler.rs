@@ -56,17 +56,25 @@ impl Priority {
     }
 }
 
+/// The instant at which a task was spawned, used by the profiler to measure the
+/// time a task spends waiting to run.
+#[derive(Clone, Copy, Debug)]
+pub struct SpawnTime(pub Instant);
+
 /// Metadata attached to runnables for debugging and profiling.
 #[derive(Clone)]
 pub struct RunnableMeta {
     /// The source location where the task was spawned.
     pub location: &'static Location<'static>,
+    /// The instant at which the task was spawned.
+    pub spawned: SpawnTime,
 }
 
 impl std::fmt::Debug for RunnableMeta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RunnableMeta")
             .field("location", &self.location)
+            .field("spawned", &self.spawned)
             .finish()
     }
 }
