@@ -34,15 +34,17 @@ homepage = "https://gpui-ce.github.io/"
 readme = "README.md"
 
 [workspace.dependencies]
-accesskit = "0.24.0"
+accesskit = { version = "0.24.0", features = ["enumn"] }
 accesskit_macos = "0.26.0"
 accesskit_unix = "0.22.0"
 accesskit_windows = "0.32.1"
 anyhow = "1.0.86"
 backtrace = "0.3"
 bitflags = "2.6.0"
+block2 = "0.6"
 collections = { path = "crates/gpui_collections", version = "0.2.2", package = "gpui_collections" }
 ctor = "1.0.6"
+dunce = "1.0"
 derive_more = { version = "2.1.1", features = [
   "add",
   "add_assign",
@@ -56,6 +58,7 @@ derive_more = { version = "2.1.1", features = [
 ] }
 futures = "0.3.32"
 futures-concurrency = "7.7.1"
+heapless = "0.9.3"
 http = "1.3"
 image = "0.25.1"
 inventory = "0.3.19"
@@ -64,6 +67,7 @@ log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
 parking_lot = "0.12.1"
 postage = { version = "0.5", features = ["futures-traits"] }
 proptest = { version = "1.10", features = ["attr-macro"] }
+raw-window-handle = "0.6"
 chrono = { version = "0.4", features = ["serde"] }
 profiling = "1"
 rand = "0.9.4"
@@ -92,8 +96,29 @@ core-foundation-sys = "0.8.6"
 core-video = { version = "0.5.2", features = ["metal"] }
 media = { path = "crates/gpui_media", version = "0.2.2", package = "gpui_media" }
 objc = "0.2"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+  "NSArray",
+  "NSBundle",
+  "NSError",
+  "NSSet",
+  "NSString",
+  "NSGeometry",
+  "NSObject",
+] }
+objc2-user-notifications = { version = "0.3", features = [
+  "UNNotification",
+  "UNNotificationAction",
+  "UNNotificationCategory",
+  "UNNotificationContent",
+  "UNNotificationRequest",
+  "UNNotificationResponse",
+  "UNUserNotificationCenter",
+  "UNError",
+] }
 mach2 = "0.5"
 metal = "0.33"
+notify-rust = "4"
 scap = { version = "0.0.8-zed", package = "zed-scap", default-features = false }
 env_logger = "0.11"
 unicode-segmentation = "1.10"

@@ -618,7 +618,6 @@ struct TextLayoutInner {
     lines: SmallVec<[WrappedLine; 1]>,
     line_height: Pixels,
     wrap_width: Option<Pixels>,
-    truncate_width: Option<Pixels>,
     size: Option<Size<Pixels>>,
     bounds: Option<Bounds<Pixels>>,
 }
@@ -819,7 +818,6 @@ impl TextLayout {
                         len: 0,
                         line_height,
                         wrap_width,
-                        truncate_width,
                         size: Some(Size::default()),
                         bounds: None,
                     });
@@ -838,7 +836,6 @@ impl TextLayout {
                     len,
                     line_height,
                     wrap_width,
-                    truncate_width,
                     size: Some(size),
                     bounds: None,
                 });

@@ -7,6 +7,7 @@ pub mod path_list;
 pub mod paths;
 pub mod process;
 pub mod redact;
+pub mod rel_path;
 pub mod schemars;
 pub mod serde;
 pub mod shell;
@@ -20,7 +21,7 @@ pub mod time;
 use anyhow::Result;
 use itertools::Either;
 use regex::Regex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::{
     borrow::Cow,
@@ -30,15 +31,43 @@ use std::{
 use unicase::UniCase;
 
 pub use gpui_util::*;
-pub use path::PathExt;
-pub use path::normalize_path;
-pub use path::rel_path;
+pub use crate::paths::PathExt;
 
 pub use take_until::*;
 
 pub use self::shell::{
     get_default_system_shell, get_default_system_shell_preferring_bash, get_system_shell,
 };
+
+/// Normalizes a path by resolving `.` and `..` components without
+/// requiring the path to exist on disk (unlike `canonicalize`).
+pub fn normalize_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
+        }
+    }
+    ret
+}
 
 #[inline]
 pub const fn is_utf8_char_boundary(u8: u8) -> bool {

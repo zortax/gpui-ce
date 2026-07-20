@@ -48,7 +48,7 @@ impl RelPath {
         let mut path = path.to_str().context("non utf-8 path")?;
 
         let (prefixes, suffixes): (&[_], &[_]) = match path_style {
-            PathStyle::Posix => (&["./"], &['/']),
+            PathStyle::Unix => (&["./"], &['/']),
             PathStyle::Windows => (&["./", ".\\"], &['/', '\\']),
         };
 
@@ -103,9 +103,9 @@ impl RelPath {
     ///
     /// Returns an error if the path is not already in the correct format.
     #[track_caller]
-    pub fn unix<S: AsRef<Path> + ?Sized>(path: &S) -> anyhow::Result<&Self> {
+    pub fn from_unix_str<S: AsRef<Path> + ?Sized>(path: &S) -> anyhow::Result<&Self> {
         let path = path.as_ref();
-        match Self::new(path, PathStyle::Posix)? {
+        match Self::new(path, PathStyle::Unix)? {
             Cow::Borrowed(path) => Ok(path),
             Cow::Owned(_) => Err(anyhow!("invalid relative path {path:?}")),
         }
@@ -213,7 +213,7 @@ impl RelPath {
 
     /// Load the path from its wire representation.
     pub fn from_proto(path: &str) -> Result<Arc<Self>> {
-        Ok(Arc::from(Self::unix(path)?))
+        Ok(Arc::from(Self::from_unix_str(path)?))
     }
 
     /// Convert the path into a string with the given path style.
@@ -222,7 +222,7 @@ impl RelPath {
     /// a string via this method.
     pub fn display(&self, style: PathStyle) -> Cow<'_, str> {
         match style {
-            PathStyle::Posix => Cow::Borrowed(&self.0),
+            PathStyle::Unix => Cow::Borrowed(&self.0),
             PathStyle::Windows if self.0.contains('/') => Cow::Owned(self.0.replace('/', "\\")),
             PathStyle::Windows => Cow::Borrowed(&self.0),
         }
@@ -408,13 +408,13 @@ impl From<&RelPath> for Arc<RelPath> {
 #[cfg(any(test, feature = "test-support"))]
 #[track_caller]
 pub fn rel_path(path: &str) -> &RelPath {
-    RelPath::unix(path).unwrap()
+    RelPath::from_unix_str(path).unwrap()
 }
 
 #[cfg(any(test, feature = "test-support"))]
 #[track_caller]
 pub fn rel_path_buf(path: &str) -> RelPathBuf {
-    RelPath::unix(path).unwrap().to_rel_path_buf()
+    RelPath::from_unix_str(path).unwrap().to_rel_path_buf()
 }
 
 impl PartialEq<str> for RelPath {
@@ -523,7 +523,7 @@ mod tests {
             rel_path("foo/baz/quux")
         );
 
-        let path = RelPath::new("./foo/bar".as_ref(), PathStyle::Posix).unwrap();
+        let path = RelPath::new("./foo/bar".as_ref(), PathStyle::Unix).unwrap();
         assert_eq!(path.as_ref(), rel_path("foo/bar"));
         assert_matches!(path, Cow::Borrowed(_));
 
@@ -535,7 +535,7 @@ mod tests {
         assert_eq!(path, rel_path("foo").into());
         assert_matches!(path, Cow::Borrowed(_));
 
-        let path = RelPath::new("foo/./bar".as_ref(), PathStyle::Posix).unwrap();
+        let path = RelPath::new("foo/./bar".as_ref(), PathStyle::Unix).unwrap();
         assert_eq!(path.as_ref(), rel_path("foo/bar"));
         assert_matches!(path, Cow::Owned(_));
 
@@ -600,7 +600,7 @@ mod tests {
         for [lhs, rhs] in test_cases.iter().array_combinations::<2>() {
             assert_eq!(
                 Path::new(lhs).cmp(Path::new(rhs)),
-                RelPath::unix(lhs).unwrap().cmp(RelPath::unix(rhs).unwrap())
+                RelPath::from_unix_str(lhs).unwrap().cmp(RelPath::from_unix_str(rhs).unwrap())
             );
         }
     }
@@ -618,10 +618,10 @@ mod tests {
     fn test_rel_path_constructors_absolute_path() {
         assert!(RelPath::new(Path::new("/a/b"), PathStyle::Windows).is_err());
         assert!(RelPath::new(Path::new("\\a\\b"), PathStyle::Windows).is_err());
-        assert!(RelPath::new(Path::new("/a/b"), PathStyle::Posix).is_err());
+        assert!(RelPath::new(Path::new("/a/b"), PathStyle::Unix).is_err());
         assert!(RelPath::new(Path::new("C:/a/b"), PathStyle::Windows).is_err());
         assert!(RelPath::new(Path::new("C:\\a\\b"), PathStyle::Windows).is_err());
-        assert!(RelPath::new(Path::new("C:/a/b"), PathStyle::Posix).is_ok());
+        assert!(RelPath::new(Path::new("C:/a/b"), PathStyle::Unix).is_ok());
     }
 
     #[test]

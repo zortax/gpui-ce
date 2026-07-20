@@ -646,6 +646,8 @@ impl PrimitiveBatch {
                 )
             }
             Self::Surfaces(range) => format!("surfaces ({})", range.len()),
+            Self::BackdropFilters(range) => format!("backdrop filters ({})", range.len()),
+            Self::FilterBoundary(index) => format!("filter boundary ({index})"),
         }
     }
 }
