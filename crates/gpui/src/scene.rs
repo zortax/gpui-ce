@@ -31,9 +31,26 @@ pub type DrawOrder = u32;
 #[repr(transparent)]
 pub struct PaddedBool32(u32);
 
+impl PaddedBool32 {
+    /// Whether the flag is set.
+    ///
+    /// Renderer backends outside this crate read the primitive arrays and need the flag back out
+    /// again; the wrapped word stays private so nothing can put a value other than `0` or `1` in
+    /// it.
+    pub const fn get(self) -> bool {
+        self.0 != 0
+    }
+}
+
 impl From<bool> for PaddedBool32 {
     fn from(value: bool) -> Self {
         PaddedBool32(value as u32)
+    }
+}
+
+impl From<PaddedBool32> for bool {
+    fn from(value: PaddedBool32) -> Self {
+        value.get()
     }
 }
 

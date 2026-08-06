@@ -907,7 +907,75 @@ impl LinearColorStop {
     }
 }
 
+/// What a [`Background`] paints, as a renderer backend needs to see it.
+///
+/// [`Background`] is laid out for the GPU: one `#[repr(C)]` struct whose meaning depends on a tag,
+/// with the pattern parameters bit-packed into the field a gradient uses for its angle. That is the
+/// right shape for an instance buffer and the wrong shape for anything that has to *interpret* a
+/// background, so this is the interpreted form. It is derived on demand and is not stored.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BackgroundKind {
+    /// One color everywhere.
+    Solid(Hsla),
+    /// A ramp between two color stops.
+    LinearGradient {
+        /// The gradient line's angle in degrees, where `0.0` points to the top and increasing
+        /// values rotate clockwise.
+        angle: f32,
+        /// The two stops, in increasing percentage order.
+        stops: [LinearColorStop; 2],
+        /// The space the ramp is interpolated in.
+        color_space: ColorSpace,
+    },
+    /// Diagonal stripes.
+    PatternSlash {
+        /// The stripe color.
+        color: Hsla,
+        /// How wide one stripe is.
+        width: f32,
+        /// How much blank space follows each stripe.
+        interval: f32,
+    },
+    /// A two-tone checkerboard, transparent in the alternate squares.
+    Checkerboard {
+        /// The color of the filled squares.
+        color: Hsla,
+        /// The side length of one square.
+        size: f32,
+    },
+}
+
 impl Background {
+    /// What this background paints, in a form that can be matched on.
+    ///
+    /// Reading a background through this rather than through its fields is what lets the packed
+    /// representation change without every renderer changing with it.
+    pub fn kind(&self) -> BackgroundKind {
+        match self.tag {
+            BackgroundTag::Solid => BackgroundKind::Solid(self.solid),
+            BackgroundTag::LinearGradient => BackgroundKind::LinearGradient {
+                angle: self.gradient_angle_or_pattern_height,
+                stops: self.colors,
+                color_space: self.color_space,
+            },
+            BackgroundTag::PatternSlash => {
+                // The inverse of `pattern_slash`, which packs two 8.8 fixed-point fractions into
+                // one float. Kept beside the shader arithmetic in `shaders.wgsl`, which decodes it
+                // the same way.
+                let packed = self.gradient_angle_or_pattern_height;
+                BackgroundKind::PatternSlash {
+                    color: self.solid,
+                    width: (packed / 65535.0) / 255.0,
+                    interval: (packed % 65535.0) / 255.0,
+                }
+            }
+            BackgroundTag::Checkerboard => BackgroundKind::Checkerboard {
+                color: self.solid,
+                size: self.gradient_angle_or_pattern_height,
+            },
+        }
+    }
+
     /// Returns the solid color if this is a solid background, None otherwise.
     pub fn as_solid(&self) -> Option<Hsla> {
         if self.tag == BackgroundTag::Solid {

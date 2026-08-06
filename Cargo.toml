@@ -9,6 +9,7 @@ members = [
   "./crates/gpui_macros/",
   "./crates/gpui_windows/",
   "./crates/gpui_platform/",
+  "./crates/gpui_zgui/",
   "./crates/gpui_shared_string/",
   "./crates/gpui_elements/",
   "./crates/gpui_collections/",
